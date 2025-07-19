@@ -7,50 +7,68 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
+      # 1. Get the code
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. Download the previous artifact
+      - name: Download scrape result
+        uses: actions/download-artifact@v3
+        with:
+          name: reddit_scrape_result
+
+      # 3. Unzip it
+      - name: Unzip artifact
+        run: unzip reddit_scrape_result.zip -d output
+
+      # 4. Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      # 5. Install requests for Airtable API calls
+      - name: Install requests
         run: pip install requests
 
-      - name: Extract and upload to Airtable
+      # 6. Extract JSON & push to Airtable
+      - name: Extract & upload to Airtable
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE:   Problems
         run: |
-          import json, os, requests, zipfile
+          python3 - << 'PYCODE'
+          import os, json, requests
 
-          # Unzip the scrape output
-          with zipfile.ZipFile("reddit_scrape_output.zip", "r") as zip_ref:
-              zip_ref.extractall("output")
+          # Load JSON
+          data = json.load(open("output/output.json", encoding="utf-8"))
 
-          with open("output/output.json", "r", encoding="utf-8") as f:
-              posts = json.load(f)
-
-          AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-          BASE_ID = os.getenv("AIRTABLE_BASE_ID")
-          TABLE_NAME = "Problems"
-
+          key   = os.environ["AIRTABLE_API_KEY"]
+          base  = os.environ["AIRTABLE_BASE_ID"]
+          table = os.environ["AIRTABLE_TABLE"]
+          url   = f"https://api.airtable.com/v0/{base}/{table}"
           headers = {
-              "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+              "Authorization": f"Bearer {key}",
               "Content-Type": "application/json"
           }
 
-          url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}"
-
-          for post in posts:
-              data = {
+          success = 0
+          for item in data:
+              post = item["post"]
+              record = {
                   "fields": {
-                      "Name": post["title"],
-                      "Notes": post["body"],
-                      "Lang": "EN"
+                      "title":   post["title"][:255],
+                      "summary": post["selftext"][:800],
+                      "lang":    "DE" if post["subreddit"] in ("de_IT","selfhosted","StartupDACH") else "EN",
+                      "tags":    [post["subreddit"]]
                   }
               }
-              r = requests.post(url, headers=headers, json=data)
-              print(f"Uploaded: {post['title']} - Status {r.status_code}")
+              r = requests.post(url, headers=headers, json=record)
+              if r.status_code == 200:
+                  success += 1
+              else:
+                  print("❌ Failed:", post["title"], r.status_code, r.text)
 
+          print(f"✅ Uploaded {success}/{len(data)} records.")
+          PYCODE
