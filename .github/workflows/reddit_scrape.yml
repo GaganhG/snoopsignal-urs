@@ -1,7 +1,7 @@
 name: Manual Reddit Scrape
 
 on:
-  workflow_dispatch:    # lets you click “Run workflow” manually
+  workflow_dispatch:
 
 jobs:
   scrape:
