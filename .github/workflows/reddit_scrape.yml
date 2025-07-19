@@ -1,46 +1,72 @@
 name: Manual Reddit Scrape
 
 on:
-  workflow_dispatch:    # allows manual “Run workflow” presses
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Check out your repository code
+      # 1) Check out the code
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2) Set up Python 3.11
+      # 2) Install Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      # 3) Install the URS CLI from PyPI
-      - name: Install Universal-Reddit-Scraper (URS)
+      # 3) Install PRAW for Reddit scraping
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install urs
+          pip install praw
 
-      # 4) Run the scraper using your custom subreddit list
-      - name: Run Reddit Scraper
+      # 4) Run an inline Python scraper using PRAW
+      - name: Scrape Reddit with PRAW
         env:
-          USERNAME:       ${{ secrets.REDDIT_USERNAME }}
-          PASSWORD:       ${{ secrets.REDDIT_PASSWORD }}
           CLIENT_ID:      ${{ secrets.REDDIT_CLIENT_ID }}
           CLIENT_SECRET:  ${{ secrets.REDDIT_CLIENT_SECRET }}
           USER_AGENT:     ${{ secrets.REDDIT_USER_AGENT }}
         run: |
-          urs -d 1 \
-            -s config/subreddits.txt \
-            -o output.json
+          python - << 'PYCODE'
+          import os, json
+          import praw
 
-      # 5) Upload output.json so you can download it
+          # Load subreddits
+          with open('config/subreddits.txt') as f:
+              subs = [l.strip() for l in f if l.strip()]
+
+          # Initialize PRAW
+          reddit = praw.Reddit(
+              client_id=os.environ['CLIENT_ID'],
+              client_secret=os.environ['CLIENT_SECRET'],
+              user_agent=os.environ['USER_AGENT']
+          )
+
+          out = []
+          for sub in subs:
+              for post in reddit.subreddit(sub).hot(limit=50):
+                  if post.num_comments > 5 and not post.over_18 and len(post.selftext) < 500:
+                      out.append({
+                          "post": {
+                              "title": post.title,
+                              "selftext": post.selftext,
+                              "subreddit": sub,
+                              "num_comments": post.num_comments
+                          }
+                      })
+
+          with open('output.json', 'w') as f:
+              json.dump(out, f, indent=2)
+          PYCODE
+
+      # 5) Upload the results for download
       - name: Upload scrape result
         uses: actions/upload-artifact@v4
         with:
-          name: reddit_scrape_result
+          name: reddit_scrape_output
           path: output.json
           retention-days: 7
