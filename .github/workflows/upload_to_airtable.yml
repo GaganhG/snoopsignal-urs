@@ -1,4 +1,4 @@
-name: Upload Reddit Data to Airtable
+ name: Upload Reddit Data to Airtable
 
 on:
   workflow_dispatch:
@@ -11,11 +11,16 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2. Download the previous scrape result artifact
-      - name: Download scrape result
-        uses: actions/download-artifact@v4
-        with:
-          name: reddit_scrape_result
+          # 2. Download the previous scrape result artifact
+-     - name: Download scrape result
+-       uses: actions/download-artifact@v4
+-       with:
+-         name: reddit_scrape_result
++     - name: Download scrape result
++       uses: actions/download-artifact@v4
++       with:
++         name: reddit_scrape_output
+
 
       # 3. Unzip the artifact
       - name: Unzip artifact
