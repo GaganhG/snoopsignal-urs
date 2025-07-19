@@ -1,29 +1,31 @@
 name: Manual Reddit Scrape
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:    # allows manual “Run workflow” presses
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) checkout your code
-      - uses: actions/checkout@v4
+      # 1) Check out your repository code
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      # 2) setup Python
-      - uses: actions/setup-python@v5
+      # 2) Set up Python 3.11
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 3) install URS as a package
-      - name: Install URS
+      # 3) Install the URS CLI from PyPI
+      - name: Install Universal-Reddit-Scraper (URS)
         run: |
           python -m pip install --upgrade pip
-          pip install .
+          pip install urs
 
-      # 4) run the CLI (no urs.py file needed)
-      - name: Run Universal-Reddit-Scraper
+      # 4) Run the scraper using your custom subreddit list
+      - name: Run Reddit Scraper
         env:
           USERNAME:       ${{ secrets.REDDIT_USERNAME }}
           PASSWORD:       ${{ secrets.REDDIT_PASSWORD }}
@@ -32,10 +34,10 @@ jobs:
           USER_AGENT:     ${{ secrets.REDDIT_USER_AGENT }}
         run: |
           urs -d 1 \
-              -s config/subreddits.txt \
-              -o output.json
+            -s config/subreddits.txt \
+            -o output.json
 
-      # 5) upload the JSON for you to download
+      # 5) Upload output.json so you can download it
       - name: Upload scrape result
         uses: actions/upload-artifact@v4
         with:
