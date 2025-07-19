@@ -1,50 +1,43 @@
 name: Manual Reddit Scrape
 
-# ───── Trigger ──────────────────────────────────────────────
-# workflow_dispatch lets you press the “Run workflow” button
 on:
-  workflow_dispatch:
+  workflow_dispatch:    # lets you click “Run workflow” manually
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Pull your repository files
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    # 2. Install Python 3.11
-    - name: Set up Python
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
 
-    # 3. Install PRAW + any extra dependencies from requirements.txt
     - name: Install dependencies
       run: |
         pip install --upgrade pip
         pip install praw
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    # 4. Run Universal-Reddit-Scraper (URS)
-    - name: Run Reddit scraper
+    - name: Run Universal-Reddit-Scraper
       env:
-        USERNAME: ${{ secrets.REDDIT_USERNAME }}
-        PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
-        CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-        CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-        USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+        USERNAME:       ${{ secrets.REDDIT_USERNAME }}
+        PASSWORD:       ${{ secrets.REDDIT_PASSWORD }}
+        CLIENT_ID:      ${{ secrets.REDDIT_CLIENT_ID }}
+        CLIENT_SECRET:  ${{ secrets.REDDIT_CLIENT_SECRET }}
+        USER_AGENT:     ${{ secrets.REDDIT_USER_AGENT }}
       run: |
-        # -d 1  → scrape last 24 h
-        # -s config/subreddits.txt → your custom list
-        # -o output.json → artifact file
-        python3 urs/urs.py -d 1 -s config/subreddits.txt -o output.json
+        python3 urs/urs.py \
+          -d 1 \
+          -s config/subreddits.txt \
+          -o output.json
 
-    # 5. Save output.json as a downloadable artifact
     - name: Upload scrape result
       uses: actions/upload-artifact@v4
       with:
         name: reddit_scrape_result
         path: output.json
-        retention-days: 7   # keep for one week
+        retention-days: 7
