@@ -7,47 +7,47 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
-      # 1. Get the code
+      # 1. Check out the repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2. Download the previous artifact
+      # 2. Download the previous scrape result artifact
       - name: Download scrape result
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: reddit_scrape_result
 
-      # 3. Unzip it
+      # 3. Unzip the artifact
       - name: Unzip artifact
         run: unzip reddit_scrape_result.zip -d output
 
-      # 4. Setup Python
+      # 4. Set up Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5. Install requests for Airtable API calls
+      # 5. Install requests for the Airtable API
       - name: Install requests
         run: pip install requests
 
-      # 6. Extract JSON & push to Airtable
+      # 6. Load output.json and push into Airtable
       - name: Extract & upload to Airtable
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_TABLE:   Problems
         run: |
           python3 - << 'PYCODE'
           import os, json, requests
 
-          # Load JSON
+          # Load scraped posts
           data = json.load(open("output/output.json", encoding="utf-8"))
 
           key   = os.environ["AIRTABLE_API_KEY"]
           base  = os.environ["AIRTABLE_BASE_ID"]
-          table = os.environ["AIRTABLE_TABLE"]
+          table = "Problems"
           url   = f"https://api.airtable.com/v0/{base}/{table}"
+
           headers = {
               "Authorization": f"Bearer {key}",
               "Content-Type": "application/json"
