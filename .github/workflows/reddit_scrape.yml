@@ -1,0 +1,36 @@
+name: Manual Reddit Scrape
+
+on:
+  workflow_dispatch:  # You can trigger this manually
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install requirements
+        run: |
+          pip install praw
+          pip install -r requirements.txt || true  # fallback if file is missing
+
+      - name: Run Reddit Scraper
+        env:
+          CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+        run: |
+          python3 urs/urs.py -d 1 -s config/subreddits.txt -o output.json
+
+      - name: Upload Output File
+        uses: actions/upload-artifact@v4
+        with:
+          name: reddit_scrape_result
+          path: output.json
