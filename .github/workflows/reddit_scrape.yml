@@ -1,7 +1,10 @@
 name: Manual Reddit Scrape
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:     # manual trigger still available
+  schedule:
+    - cron: '0 4 * * *'  # runs at 04:00 UTC → 06:00 CET every day
+
 
 jobs:
   scrape:
