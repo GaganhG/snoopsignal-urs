@@ -1,4 +1,4 @@
- name: Upload Reddit Data to Airtable
+name: Upload Reddit Data to Airtable
 
 on:
   workflow_dispatch:
@@ -7,73 +7,71 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
-      # 1. Check out the repo
+      # 1) Check out the repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
-          # 2. Download the previous scrape result artifact
--     - name: Download scrape result
--       uses: actions/download-artifact@v4
--       with:
--         name: reddit_scrape_result
-+     - name: Download scrape result
-+       uses: actions/download-artifact@v4
-+       with:
-+         name: reddit_scrape_output
+      # 2) Download the scrape artifact
+      - name: Download scrape result
+        uses: actions/download-artifact@v4
+        with:
+          name: reddit_scrape_output
+          path: ./data
 
-
-      # 3. Unzip the artifact
+      # 3) Unzip the JSON
       - name: Unzip artifact
-        run: unzip reddit_scrape_result.zip -d output
+        run: unzip ./data/reddit_scrape_output.zip -d ./data
 
-      # 4. Set up Python 3.11
+      # 4) Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5. Install requests for the Airtable API
+      # 5) Install HTTP client
       - name: Install requests
         run: pip install requests
 
-      # 6. Load output.json and push into Airtable
-      - name: Extract & upload to Airtable
+      # 6) Load JSON & push to Airtable
+      - name: Upload to Airtable
         env:
-          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TOKEN:     ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID:   ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE:     Problems
         run: |
-          python3 - << 'PYCODE'
+          python3 << 'EOF'
           import os, json, requests
 
           # Load scraped posts
-          data = json.load(open("output/output.json", encoding="utf-8"))
+          with open("data/output.json", encoding="utf-8") as f:
+              posts = json.load(f)
 
-          key   = os.environ["AIRTABLE_API_KEY"]
+          token = os.environ["AIRTABLE_TOKEN"]
           base  = os.environ["AIRTABLE_BASE_ID"]
-          table = "Problems"
-          url   = f"https://api.airtable.com/v0/{base}/{table}"
+          table = os.environ["AIRTABLE_TABLE"]
 
+          url = f"https://api.airtable.com/v0/{base}/{table}"
           headers = {
-              "Authorization": f"Bearer {key}",
+              "Authorization": f"Bearer {token}",
               "Content-Type": "application/json"
           }
 
           success = 0
-          for item in data:
+          for item in posts:
               post = item["post"]
-              record = {
+              payload = {
                   "fields": {
-                      "title":   post["title"][:255],
-                      "summary": post["selftext"][:800],
-                      "lang":    "DE" if post["subreddit"] in ("de_IT","selfhosted","StartupDACH") else "EN",
-                      "tags":    [post["subreddit"]]
+                      "Name":   post.get("title","")[:255],
+                      "Notes":  post.get("selftext","")[:800],
+                      "Lang":   "DE" if post.get("subreddit") in ("de_IT","selfhosted","StartupDACH") else "EN",
+                      "Tags":   [post.get("subreddit","")]
                   }
               }
-              r = requests.post(url, headers=headers, json=record)
+              r = requests.post(url, headers=headers, json=payload)
               if r.status_code == 200:
                   success += 1
               else:
-                  print("❌ Failed:", post["title"], r.status_code, r.text)
+                  print("Failed:", post.get("title"), r.status_code, r.text)
 
-          print(f"✅ Uploaded {success}/{len(data)} records.")
-          PYCODE
+          print(f"✅ Uploaded {success}/{len(posts)} records to Airtable")
+          EOF
