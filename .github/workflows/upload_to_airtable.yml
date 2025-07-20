@@ -7,11 +7,11 @@ jobs:
   upload:
     runs-on: ubuntu-latest
     steps:
-      # 1) Check out the repo
+      # 1) Checkout your code
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2) Download the scrape artifact
+      # 2) Download the artifact you produced earlier
       - name: Download scrape result
         uses: actions/download-artifact@v4
         with:
@@ -22,56 +22,57 @@ jobs:
       - name: Unzip artifact
         run: unzip ./data/reddit_scrape_output.zip -d ./data
 
-      # 4) Setup Python
+      # 4) Set up Python 3.11
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 5) Install HTTP client
+      # 5) Install the HTTP client
       - name: Install requests
         run: pip install requests
 
-      # 6) Load JSON & push to Airtable
+      # 6) Run the Python block to push into Airtable
       - name: Upload to Airtable
         env:
-          AIRTABLE_TOKEN:     ${{ secrets.AIRTABLE_TOKEN }}
-          AIRTABLE_BASE_ID:   ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_TABLE:     Problems
+          AIRTABLE_TOKEN:   ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE:   Problems
         run: |
           python3 << 'EOF'
           import os, json, requests
 
-          # Load scraped posts
+          # 1) Load the scraped JSON
           with open("data/output.json", encoding="utf-8") as f:
               posts = json.load(f)
 
+          # 2) Airtable settings
           token = os.environ["AIRTABLE_TOKEN"]
           base  = os.environ["AIRTABLE_BASE_ID"]
           table = os.environ["AIRTABLE_TABLE"]
-
-          url = f"https://api.airtable.com/v0/{base}/{table}"
+          url   = f"https://api.airtable.com/v0/{base}/{table}"
           headers = {
               "Authorization": f"Bearer {token}",
               "Content-Type": "application/json"
           }
 
+          # 3) Iterate & POST
           success = 0
           for item in posts:
               post = item["post"]
-              payload = {
+              record = {
                   "fields": {
                       "Name":   post.get("title","")[:255],
                       "Notes":  post.get("selftext","")[:800],
                       "Lang":   "DE" if post.get("subreddit") in ("de_IT","selfhosted","StartupDACH") else "EN",
-                      "Tags":   [post.get("subreddit","")]
+                      "Tags":   [ post.get("subreddit","") ]
                   }
               }
-              r = requests.post(url, headers=headers, json=payload)
-              if r.status_code == 200:
+              resp = requests.post(url, headers=headers, json=record)
+              if resp.status_code == 200:
                   success += 1
               else:
-                  print("Failed:", post.get("title"), r.status_code, r.text)
+                  print("❌ Failed:", post.get("title"), resp.status_code, resp.text)
 
-          print(f"✅ Uploaded {success}/{len(posts)} records to Airtable")
+          print(f"✅ Successfully uploaded {success}/{len(posts)} records.")
           EOF
