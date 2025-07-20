@@ -6,29 +6,29 @@ on:
 jobs:
   upload:
     runs-on: ubuntu-latest
+
     steps:
-      # 1 Checkout
+      # 1. Checkout
       - uses: actions/checkout@v4
 
-      # 2 Download artifact from the latest successful run of reddit_scrape.yml
+      # 2. Download uploaded artifact from previous scrape run
       - name: Download scrape result
         uses: actions/download-artifact@v4
         with:
           name: reddit_scrape_output
           path: ./data
-          workflow: reddit_scrape.yml        # 👈 tells GH to look at that workflow
-          workflow_conclusion: success
 
-      # 3 Unzip
+      # 3. Unzip
       - run: unzip ./data/reddit_scrape_output.zip -d ./data
 
-      # 4 Python
+      # 4. Set up Python
       - uses: actions/setup-python@v5
-        with: {python-version: '3.11'}
+        with:
+          python-version: '3.11'
 
       - run: pip install requests
 
-      # 5 Push to Airtable
+      # 5. Push to Airtable
       - name: Upload to Airtable
         env:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
@@ -40,8 +40,10 @@ jobs:
               posts = json.load(f)
 
           url = f"https://api.airtable.com/v0/{os.environ['AIRTABLE_BASE_ID']}/Problems"
-          headers = {"Authorization": f"Bearer {os.environ['AIRTABLE_API_KEY']}",
-                     "Content-Type": "application/json"}
+          headers = {
+              "Authorization": f"Bearer {os.environ['AIRTABLE_API_KEY']}",
+              "Content-Type": "application/json"
+          }
 
           sent = 0
           for p in posts:
